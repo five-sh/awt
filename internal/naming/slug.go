@@ -1,0 +1,61 @@
+package naming
+
+import (
+	"crypto/sha1"
+	"encoding/hex"
+	"fmt"
+	"regexp"
+	"strings"
+)
+
+const maxSessionLen = 60
+
+var (
+	nonSlugChars = regexp.MustCompile(`[^\p{L}\p{N}._-]+`)
+	dashRun      = regexp.MustCompile(`-+`)
+	dotRun       = regexp.MustCompile(`\.{2,}`)
+	edgeTrim     = regexp.MustCompile(`^[.-]+|[.-]+$`)
+)
+
+// Slugify turns free-form input into a name safe for both a directory and a git branch.
+func Slugify(input string) (string, error) {
+	s := nonSlugChars.ReplaceAllString(strings.TrimSpace(input), "-")
+	s = dashRun.ReplaceAllString(s, "-")
+	s = dotRun.ReplaceAllString(s, ".")
+	s = edgeTrim.ReplaceAllString(s, "")
+	if s == "" || s == "." || s == ".." {
+		return "", fmt.Errorf("invalid name %q", input)
+	}
+	return s, nil
+}
+
+// SessionName builds a tmux-safe session name from a repo slug and worktree slug.
+func SessionName(repoSlug, wtSlug string) string {
+	clean := strings.NewReplacer(":", "-", ".", "-")
+	name := clean.Replace(repoSlug) + "--" + clean.Replace(wtSlug)
+	if len(name) <= maxSessionLen {
+		return name
+	}
+	return shortenWithHash(name)
+}
+
+// Disambiguate appends a short hash suffix if name is already taken.
+func Disambiguate(name string, taken func(string) bool) string {
+	if !taken(name) {
+		return name
+	}
+	return shortenWithHash(name)
+}
+
+func shortenWithHash(name string) string {
+	sum := sha1.Sum([]byte(name))
+	suffix := hex.EncodeToString(sum[:])[:6]
+	max := maxSessionLen - len(suffix) - 1
+	if max > len(name) {
+		max = len(name)
+	}
+	if max < 0 {
+		max = 0
+	}
+	return name[:max] + "-" + suffix
+}
