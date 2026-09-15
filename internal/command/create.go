@@ -1,6 +1,8 @@
 package command
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -40,17 +42,45 @@ func finishCreate(repo *state.Repo, name, branch, parent string, add func(path s
 	return wt, nil
 }
 
-// createWorktree creates a new branch named name, based off base.
-func createWorktree(repo *state.Repo, name, base string) (state.Worktree, error) {
-	return finishCreate(repo, name, name, base, func(path string) error {
-		return git.AddWorktree(repo.Path, path, name, base)
+// createWorktree creates a new branch named branch (which may contain "/" for
+// namespacing, e.g. "codex/foo"), based off base. name is the flattened
+// directory/state name, distinct from branch so the worktree stays flat on disk.
+func createWorktree(repo *state.Repo, name, branch, base string) (state.Worktree, error) {
+	return finishCreate(repo, name, branch, base, func(path string) error {
+		return git.AddWorktree(repo.Path, path, branch, base)
 	})
 }
 
 // materializeExisting checks out a branch that already exists into a new worktree.
+// The branch itself is used as-is (it may contain "/", as with "feature/x"
+// namespacing); the worktree's directory/state name is slugified so a branch like
+// that doesn't nest the worktree under subdirectories the way its ref does. Before
+// checking out, it syncs the branch against origin (fast-forwarding and setting up
+// tracking) so a branch left stale since it was last materialized doesn't get
+// silently reused as-is.
 func materializeExisting(repo *state.Repo, branch string) (state.Worktree, error) {
-	return finishCreate(repo, branch, branch, "", func(path string) error {
+	name, err := naming.Slugify(branch)
+	if err != nil {
+		return state.Worktree{}, err
+	}
+	if warn := git.SyncExisting(repo.Path, branch); warn != "" {
+		fmt.Fprintln(os.Stderr, "awt: "+warn)
+	}
+	return finishCreate(repo, name, branch, "", func(path string) error {
 		return git.AddWorktreeExisting(repo.Path, path, branch)
+	})
+}
+
+// materializeRemote checks out a branch that exists only on origin (ref, e.g.
+// "refs/remotes/origin/<branch>"), creating a local tracking branch for it. See
+// materializeExisting for why the worktree name is slugified separately from branch.
+func materializeRemote(repo *state.Repo, branch, ref string) (state.Worktree, error) {
+	name, err := naming.Slugify(branch)
+	if err != nil {
+		return state.Worktree{}, err
+	}
+	return finishCreate(repo, name, branch, "", func(path string) error {
+		return git.AddWorktreeTracking(repo.Path, path, branch, ref)
 	})
 }
 

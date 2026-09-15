@@ -32,6 +32,31 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
+func TestSlugifyBranch(t *testing.T) {
+	cases := map[string]string{
+		"codex/fix login!!": "codex/fix-login",
+		"Fix/Login!!":       "Fix/Login",
+		"feature x":         "feature-x",
+	}
+	for in, want := range cases {
+		got, err := SlugifyBranch(in)
+		if err != nil {
+			t.Errorf("SlugifyBranch(%q) unexpected error: %v", in, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("SlugifyBranch(%q) = %q, want %q", in, got, want)
+		}
+	}
+
+	badCases := []string{"/codex", "codex/", "codex//foo", ""}
+	for _, in := range badCases {
+		if _, err := SlugifyBranch(in); err == nil {
+			t.Errorf("SlugifyBranch(%q) = nil error, want error", in)
+		}
+	}
+}
+
 func TestSessionName(t *testing.T) {
 	got := SessionName("my.repo", "fix:bug")
 	want := "my-repo--fix-bug"

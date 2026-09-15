@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func run(args ...string) (string, error) {
@@ -55,21 +57,37 @@ func KillSession(name string) error {
 	return err
 }
 
-func ListSessions() ([]string, error) {
-	out, err := run("list-sessions", "-F", "#{session_name}")
+// Session is a live tmux session. LastAttached is tmux's own record of it,
+// which outlives any one awt invocation.
+type Session struct {
+	Name         string
+	Attached     bool
+	LastAttached time.Time
+}
+
+const sessionFormat = "#{session_name}\t#{session_attached}\t#{session_last_attached}"
+
+func ListSessions() ([]Session, error) {
+	out, err := run("list-sessions", "-F", sessionFormat)
 	if err != nil {
 		if strings.Contains(err.Error(), "no server running") {
 			return nil, nil
 		}
 		return nil, err
 	}
-	var names []string
+	var sessions []Session
 	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
-		if l != "" {
-			names = append(names, l)
+		f := strings.Split(l, "\t")
+		if len(f) < 3 || f[0] == "" {
+			continue
 		}
+		s := Session{Name: f[0], Attached: f[1] == "1"}
+		if secs, err := strconv.ParseInt(f[2], 10, 64); err == nil && secs > 0 {
+			s.LastAttached = time.Unix(secs, 0)
+		}
+		sessions = append(sessions, s)
 	}
-	return names, nil
+	return sessions, nil
 }
 
 func ListWindows(session string) ([]string, error) {

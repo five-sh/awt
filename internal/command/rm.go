@@ -14,13 +14,14 @@ func Rm(repoName, worktreeName string, force bool) error {
 	if err != nil {
 		return err
 	}
-	entries, err := listRepo(repo)
+	groups, err := groupOne(repo)
 	if err != nil {
 		return err
 	}
+	entries := flatten(groups)
 	var target *Entry
 	for i := range entries {
-		if entries[i].Name == worktreeName {
+		if entries[i].Matches(worktreeName) {
 			target = &entries[i]
 			break
 		}
@@ -28,7 +29,11 @@ func Rm(repoName, worktreeName string, force bool) error {
 	if target == nil {
 		return fmt.Errorf("no worktree named %q in %q", worktreeName, repo.Name)
 	}
-	if target.Dirty && !force {
+	// Checked here rather than carried on every entry: this is the only place a
+	// worktree's dirtiness is acted on, and `git status` across a whole repo is
+	// slow enough to dominate a listing.
+	dirty, _ := git.IsDirty(target.Path)
+	if dirty && !force {
 		return fmt.Errorf("worktree %q has uncommitted changes — use --force to remove anyway", worktreeName)
 	}
 

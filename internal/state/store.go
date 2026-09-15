@@ -85,9 +85,11 @@ func (s *Store) Save() error {
 	return os.Rename(tmp, path)
 }
 
+// Find looks up a worktree by its (possibly slugified) name or by the raw branch
+// it checks out, so a caller can identify it either way.
 func (s *Store) Find(repo, name string) (*Worktree, bool) {
 	for i := range s.Worktrees {
-		if s.Worktrees[i].Repo == repo && s.Worktrees[i].Name == name {
+		if s.Worktrees[i].Repo == repo && (s.Worktrees[i].Name == name || s.Worktrees[i].Branch == name) {
 			return &s.Worktrees[i], true
 		}
 	}

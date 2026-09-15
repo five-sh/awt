@@ -3,121 +3,114 @@ package command
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"text/tabwriter"
 	"time"
 
-	"awt/internal/git"
-	"awt/internal/naming"
 	"awt/internal/state"
-	"awt/internal/tmux"
 )
 
-const timeFormat = "Jan 2 15:04"
+const (
+	timeFormat = "Jan 2 15:04"
+	lsColumns  = "NAME\tBRANCH\tFROM\tSESSION\tLAST ATTACHED"
+)
 
 type Entry struct {
 	state.Worktree
-	Dirty bool
 	Alive bool
 }
 
-// listRepo merges worktrees tracked in state with whatever git actually reports for
-// repo, so worktrees awt didn't create (the main checkout, a manual `git worktree
-// add`) still show up.
-func listRepo(repo *state.Repo) ([]Entry, error) {
-	st, err := state.Load()
-	if err != nil {
-		return nil, err
-	}
-	sessions, err := tmux.ListSessions()
-	if err != nil {
-		return nil, err
-	}
-	alive := make(map[string]bool, len(sessions))
-	for _, s := range sessions {
-		alive[s] = true
-	}
-
-	seen := make(map[string]bool)
-	var entries []Entry
-	for _, w := range st.ForRepo(repo.Name) {
-		dirty, _ := git.IsDirty(w.Path)
-		entries = append(entries, Entry{Worktree: w, Dirty: dirty, Alive: alive[w.Session]})
-		seen[w.Path] = true
-	}
-
-	live, err := git.ListWorktrees(repo.Path)
-	if err != nil {
-		return nil, err
-	}
-	for _, lw := range live {
-		if lw.Bare || seen[lw.Path] {
-			continue
-		}
-		name := lw.Branch
-		if name == "" {
-			name = filepath.Base(lw.Path)
-		}
-		session := naming.SessionName(repo.Name, name)
-		dirty, _ := git.IsDirty(lw.Path)
-		entries = append(entries, Entry{
-			Worktree: state.Worktree{Repo: repo.Name, Name: name, Branch: lw.Branch, Path: lw.Path, Session: session},
-			Dirty:    dirty,
-			Alive:    alive[session],
-		})
-	}
-	return entries, nil
+// Matches reports whether name identifies this entry, either by its (possibly
+// slugified) name or by the raw branch it checks out.
+func (e Entry) Matches(name string) bool {
+	return e.Name == name || e.Branch == name
 }
 
 func Ls(repoName string) error {
 	if repoName == "" {
-		return lsAll()
+		groups, err := groupAll()
+		if err != nil {
+			return err
+		}
+		return printLs(groups)
 	}
 	repo, err := resolveRepo(repoName)
 	if err != nil {
 		return err
 	}
-	entries, err := listRepo(repo)
+	groups, err := groupOne(repo)
 	if err != nil {
 		return err
 	}
-	return printLs(entries, false)
+	return printLs(groups)
 }
 
-func lsAll() error {
-	st, err := state.Load()
-	if err != nil {
-		return err
+// printLs groups by repo on a terminal and falls back to one flat table when
+// piped, so `awt ls | grep ...` keeps seeing the same columns it always did.
+func printLs(groups []Group) error {
+	if isTTY(os.Stdout) {
+		return printGrouped(groups)
 	}
-	var all []Entry
-	for _, r := range st.Repos {
-		entries, err := listRepo(&r)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "awt: skipping %q: %v\n", r.Name, err)
+	return printFlat(groups)
+}
+
+func printGrouped(groups []Group) error {
+	for i, g := range groups {
+		if i > 0 {
+			fmt.Println()
+		}
+		if g.Err != nil {
+			fmt.Printf("%s  unreadable: %v\n", g.Repo, g.Err)
 			continue
 		}
-		all = append(all, entries...)
+		fmt.Printf("%s  %s · %d live\n", g.Repo, plural(len(g.Entries), "worktree"), g.Live())
+		if len(g.Entries) == 0 {
+			continue
+		}
+		// A tabwriter per section: it sizes columns over a run of tabbed lines,
+		// and the headings between groups would break that run anyway.
+		w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+		fmt.Fprintln(w, "  "+lsColumns)
+		for _, e := range g.Entries {
+			fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\n",
+				e.Name, e.Branch, e.Parent, yesNo(e.Alive), formatTime(e.LastAttached))
+		}
+		if err := w.Flush(); err != nil {
+			return err
+		}
 	}
-	return printLs(all, true)
+	return nil
 }
 
-func printLs(entries []Entry, showRepo bool) error {
+func printFlat(groups []Group) error {
+	showRepo := len(groups) > 1
 	w := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
 	if showRepo {
-		fmt.Fprintln(w, "REPO\tNAME\tBRANCH\tFROM\tDIRTY\tSESSION\tLAST ATTACHED")
+		fmt.Fprintln(w, "REPO\t"+lsColumns)
 	} else {
-		fmt.Fprintln(w, "NAME\tBRANCH\tFROM\tDIRTY\tSESSION\tLAST ATTACHED")
+		fmt.Fprintln(w, lsColumns)
 	}
-	for _, e := range entries {
+	for _, e := range flatten(groups) {
 		if showRepo {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-				e.Repo, e.Name, e.Branch, e.Parent, yesNo(e.Dirty), yesNo(e.Alive), formatTime(e.LastAttached))
-		} else {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-				e.Name, e.Branch, e.Parent, yesNo(e.Dirty), yesNo(e.Alive), formatTime(e.LastAttached))
+				e.Repo, e.Name, e.Branch, e.Parent, yesNo(e.Alive), formatTime(e.LastAttached))
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+				e.Name, e.Branch, e.Parent, yesNo(e.Alive), formatTime(e.LastAttached))
 		}
 	}
 	return w.Flush()
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return fmt.Sprintf("%d %s", n, word)
+	}
+	return fmt.Sprintf("%d %ss", n, word)
+}
+
+func isTTY(f *os.File) bool {
+	fi, err := f.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
 
 func yesNo(b bool) string {
