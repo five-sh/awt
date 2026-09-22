@@ -199,10 +199,11 @@ navigates under vim keys straight away. `i`, `a` or `/` switch to typing, and
 | `enter`             | switch                  | switch                    |
 | `alt-enter`         | make what you typed     | make what you typed       |
 
-Every other letter and digit does nothing in normal mode, so a stray keypress
-can't quietly re-filter the list or, worse, get made into a branch. `D` and `C`
-are how you drop the seeded repo filter; while typing, `ctrl-u` clears the query
-as it does in vim's insert mode.
+In normal mode, all other letters and digits do nothing. A key pressed by
+mistake won't change the list or create a branch.
+
+The picker starts filtered to your repo. Press `D` or `C` to clear that filter.
+While typing, `ctrl-u` clears what you typed.
 
 ## Config
 
