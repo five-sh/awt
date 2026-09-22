@@ -17,6 +17,7 @@ with everything inside it still running.
 ```
 make install   # build + copy to ~/.local/bin/awt
 make build     # just build ./awt
+make check     # fmt + vet + test + build
 ```
 
 Coming from v0.1, which gave every worktree its own session:
