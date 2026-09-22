@@ -2,84 +2,55 @@ package command
 
 import (
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 
-	"awt/internal/state"
 	"awt/internal/tmux"
 )
 
-const (
-	editWindow    = "edit"
-	defaultEditor = "nvim"
-	agentPrefix   = "agent-"
-	firstAgent    = agentPrefix + "1"
-	claudeCmd     = "claude --dangerously-skip-permissions"
-)
-
-func editorCmd() string {
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = defaultEditor
-	}
-	return editor + " ."
-}
-
-// createSessionLayout starts a tmux session with the default worktree layout:
-// an "edit" window and a first agent window.
-func createSessionLayout(session, path string) error {
-	if err := tmux.NewSession(session, path, editWindow, editorCmd()); err != nil {
-		return err
-	}
-	return tmux.NewWindow(session, firstAgent, path, claudeCmd, true) // detached: keep focus on "edit"
-}
-
-// AgentAdd spawns another agent window into an already-running worktree
-// session, called from inside that session or from anywhere else.
+// AgentAdd spawns another agent pane in a worktree's window. A worktree is one
+// window now, so agents are panes in it: the first lands beside the editor and
+// the rest stack under that one. The window is addressed by id, so this works on
+// a parked worktree as much as the one on screen.
 func AgentAdd(repoName, worktreeName, name string) error {
 	repo, err := resolveRepo(repoName)
 	if err != nil {
 		return err
 	}
-	st, err := state.Load()
+	groups, err := groupOne(repo)
 	if err != nil {
 		return err
 	}
-	wt, ok := st.Find(repo.Name, worktreeName)
-	if !ok {
+	var target *Entry
+	for _, e := range flatten(groups) {
+		if e.Matches(worktreeName) {
+			target = &e
+			break
+		}
+	}
+	if target == nil {
 		return fmt.Errorf("no worktree named %q in %q", worktreeName, repo.Name)
 	}
-	if !tmux.HasSession(wt.Session) {
-		return fmt.Errorf("session for %q isn't running — try 'awt switch %s %s' first", worktreeName, repo.Name, worktreeName)
+	if !target.Alive {
+		return fmt.Errorf("no window for %q yet — try 'awt switch %s %s' first",
+			worktreeName, repo.Name, target.Name)
 	}
 
+	panes, err := tmux.ListPanes(target.Window)
+	if err != nil {
+		return err
+	}
 	if name == "" {
-		windows, err := tmux.ListWindows(wt.Session)
-		if err != nil {
-			return err
-		}
-		name = nextAgentWindow(windows)
+		name = nextAgentPane(panes)
 	}
-
+	// Focus the new pane only when you're looking at the window it appears in.
 	detach := true
-	if cur, ok := tmux.CurrentSession(); ok && cur == wt.Session {
+	if id, ok := tmux.CurrentWindow(); ok && id == target.Window {
 		detach = false
 	}
-	return tmux.NewWindow(wt.Session, name, wt.Path, claudeCmd, detach)
-}
-
-// nextAgentWindow returns "agent-N" one past the highest N found in existing.
-func nextAgentWindow(existing []string) string {
-	max := 0
-	for _, w := range existing {
-		n, ok := strings.CutPrefix(w, agentPrefix)
-		if !ok {
-			continue
-		}
-		if i, err := strconv.Atoi(n); err == nil && i > max {
-			max = i
-		}
+	split := agentSplit(target.Window, panes)
+	split.CWD, split.Cmd, split.Detach = target.Path, claudeCmd, detach
+	pane, err := tmux.SplitWindow(split)
+	if err != nil {
+		return err
 	}
-	return fmt.Sprintf("%s%d", agentPrefix, max+1)
+	return tmux.SetPaneTitle(pane, name)
 }

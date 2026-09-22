@@ -12,13 +12,12 @@ import (
 
 	"awt/internal/git"
 	"awt/internal/state"
-	"awt/internal/tmux"
 )
 
-// Switch resolves repo/worktree and attaches, creating a tmux session and, if
-// needed, the worktree itself (an existing branch, or the repo's default branch)
-// on the way. Empty repoName opens a picker across every registered repo; an empty
-// worktreeName opens a picker scoped to repoName.
+// Switch resolves repo/worktree and brings it on screen, creating its tmux
+// window and, if needed, the worktree itself (an existing branch, or the repo's
+// default branch) on the way. Empty repoName opens a picker across every
+// registered repo; an empty worktreeName opens a picker scoped to repoName.
 func Switch(repoName, worktreeName string) error {
 	if repoName == "" {
 		return switchGlobal()
@@ -40,7 +39,7 @@ func Switch(repoName, worktreeName string) error {
 	}
 	switch {
 	case ch.entry != nil:
-		return attach(*ch.entry)
+		return focus(*ch.entry)
 	case ch.typed != "":
 		// Scoped picker: labels are bare branches, so the whole query is one —
 		// slashes included, as in "codex/foo".
@@ -61,7 +60,7 @@ func switchGlobal() error {
 		return err
 	}
 	if ch.entry != nil {
-		return attach(*ch.entry)
+		return focus(*ch.entry)
 	}
 	if ch.typed != "" {
 		repo, name, err := resolveTyped(groups, ch.typed)
@@ -85,7 +84,7 @@ func switchGlobal() error {
 // doesn't exist yet. create widens that to a name nothing at all answers to —
 // no worktree, no branch anywhere — which becomes a brand-new branch off the
 // same base `awt new` would pick. It's how the picker turns a name you typed
-// into a session.
+// into a window on screen.
 func switchTo(repo *state.Repo, name string, create bool) error {
 	groups, err := groupOne(repo)
 	if err != nil {
@@ -94,7 +93,7 @@ func switchTo(repo *state.Repo, name string, create bool) error {
 	entries := flatten(groups)
 	for i := range entries {
 		if entries[i].Matches(name) {
-			return attach(entries[i])
+			return focus(entries[i])
 		}
 	}
 	wt, err := materialize(repo, name)
@@ -104,7 +103,7 @@ func switchTo(repo *state.Repo, name string, create bool) error {
 	if err != nil {
 		return err
 	}
-	return attach(Entry{Worktree: wt, Alive: true})
+	return focus(Entry{Worktree: wt})
 }
 
 // resolveTyped turns a name typed into the global picker into a repo and a name
@@ -190,16 +189,6 @@ func materialize(repo *state.Repo, name string) (state.Worktree, error) {
 		errNoSuchName, name, repo.Name, repo.Name, name)
 }
 
-func attach(e Entry) error {
-	if !e.Alive {
-		if err := createSessionLayout(e.Session, e.Path); err != nil {
-			return err
-		}
-	}
-	adopt(e.Worktree)
-	return tmux.SwitchOrAttach(e.Session)
-}
-
 // adopt records a worktree in state (even one awt didn't create, like the main
 // checkout) and bumps its LastAttached, so a discovered worktree becomes tracked.
 func adopt(wt state.Worktree) {
@@ -268,16 +257,18 @@ func pickHeader(showRepo bool) string {
 	if showRepo {
 		name = "<repo>/<branch>"
 	}
-	h := "enter: switch · " + createKey + ": new " + name
+	nav := "enter: switch · j/k · g/G · ctrl-d/ctrl-u · q: quit"
 	if showRepo {
-		h += " · ctrl-u: clear filter"
+		nav += " · D: clear filter"
 	}
-	return h
+	// Neither the modes nor the fact that a name you type gets made is guessable
+	// from the rows, so both get spelled out.
+	return nav + "\ni: type a name · " + createKey + ": make " + name + " · esc: back to normal"
 }
 
 // pickLabel is the only thing the picker shows: repo/branch, or just the branch
 // when everything on offer is from one repo. Entries with no branch of their own
-// (a detached checkout, a session awt didn't create) fall back to their name.
+// (a detached checkout, a window awt didn't create) fall back to their name.
 func pickLabel(e Entry, showRepo bool) string {
 	label := e.Branch
 	if label == "" {
@@ -299,10 +290,16 @@ func pickFzf(entries []Entry, showRepo bool, query string) (choice, error) {
 	// --tiebreak=index keeps the grouped order for equally good matches; without
 	// it fzf re-sorts by score and the grouping dissolves on the first keystroke.
 	// --print-query is what makes a name that matched nothing usable at all.
-	cmd := exec.Command("fzf", "--with-nth=1", "--delimiter=\t",
+	// --prompt is set
+	// explicitly because the vim mode reads the prompt to tell which mode it's
+	// in, and a prompt from the user's own FZF_DEFAULT_OPTS would break that.
+	args := append([]string{"--with-nth=1", "--delimiter=\t",
 		"--tiebreak=index", "--layout=reverse", "--info=inline",
-		"--print-query", "--expect="+createKey,
-		"--header="+pickHeader(showRepo), "--query="+query)
+		"--print-query", "--expect=" + createKey,
+		"--prompt=" + normalPrompt,
+		"--header=" + pickHeader(showRepo), "--query=" + query,
+	}, pickerBindings()...)
+	cmd := exec.Command("fzf", args...)
 	cmd.Stdin = strings.NewReader(strings.Join(lines, "\n"))
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()

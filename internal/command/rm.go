@@ -37,8 +37,11 @@ func Rm(repoName, worktreeName string, force bool) error {
 		return fmt.Errorf("worktree %q has uncommitted changes — use --force to remove anyway", worktreeName)
 	}
 
-	if tmux.HasSession(target.Session) {
-		if err := tmux.KillSession(target.Session); err != nil {
+	// Killing the window takes the editor and agents with it. If it was the one
+	// its repo had on screen, the repo simply leaves the status bar; whatever
+	// siblings it had parked are untouched.
+	if target.Alive {
+		if err := tmux.KillWindow(target.Window); err != nil {
 			return err
 		}
 	}

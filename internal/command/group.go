@@ -53,11 +53,13 @@ func flatten(groups []Group) []Entry {
 	return out
 }
 
-// snapshot is one invocation's view of the world: state and the live tmux
-// sessions, each read once rather than once per repo.
+// snapshot is one invocation's view of the world: state and every window on the
+// tmux server, each read once rather than once per repo.
 type snapshot struct {
-	st       *state.Store
-	sessions map[string]tmux.Session
+	st      *state.Store
+	windows map[string]tmux.Window // by window id
+	byName  map[string]tmux.Window // by window name, for entries state has lost
+	front   string
 }
 
 func loadSnapshot() (*snapshot, error) {
@@ -65,15 +67,29 @@ func loadSnapshot() (*snapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	live, err := tmux.ListSessions()
+	live, err := tmux.ListWindows()
 	if err != nil {
 		return nil, err
 	}
-	sessions := make(map[string]tmux.Session, len(live))
-	for _, s := range live {
-		sessions[s.Name] = s
+	s := &snapshot{
+		st:      st,
+		windows: make(map[string]tmux.Window, len(live)),
+		byName:  make(map[string]tmux.Window, len(live)),
+		front:   frontSession(),
 	}
-	return &snapshot{st: st, sessions: sessions}, nil
+	park := parkSession()
+	for _, w := range live {
+		// Only awt's own two sessions are awt's business; a window in some other
+		// session isn't a worktree window awt can move around.
+		if w.Session != s.front && w.Session != park {
+			continue
+		}
+		s.windows[w.ID] = w
+		if _, seen := s.byName[w.Name]; !seen {
+			s.byName[w.Name] = w
+		}
+	}
+	return s, nil
 }
 
 // groupOne wraps a single repo's entries, so printers and the picker take
@@ -92,7 +108,7 @@ func groupOne(repo *state.Repo) ([]Group, error) {
 	return groups, nil
 }
 
-// groupAll builds a group per registered repo plus, last, one for live sessions
+// groupAll builds a group per registered repo plus, last, one for live windows
 // no repo accounts for. A repo that can't be listed keeps its group with the
 // error attached, rather than dropping out of the output entirely.
 func groupAll() ([]Group, error) {
@@ -146,43 +162,57 @@ func (s *snapshot) repoEntries(repo *state.Repo) ([]Entry, error) {
 		if name == "" {
 			name = filepath.Base(lw.Path)
 		}
-		entries = append(entries, s.entry(state.Worktree{
-			Repo: repo.Name, Name: name, Branch: lw.Branch, Path: lw.Path,
-			Session: naming.SessionName(repo.Name, name),
-		}))
+		w := state.Worktree{Repo: repo.Name, Name: name, Branch: lw.Branch, Path: lw.Path}
+		// No window recorded, but there may well be one: state can be lost while
+		// the window it described is still running, and the window carries the
+		// same "<repo>:<worktree>" name awt gave it.
+		if win, ok := s.byName[naming.WindowName(repo.Name, name)]; ok {
+			w.Window = win.ID
+		}
+		entries = append(entries, s.entry(w))
 	}
 	return entries, nil
 }
 
-// entry marks a worktree live if its session exists, preferring tmux's own
-// last-attached time: state only records the attaches awt itself performed.
+// entry marks a worktree live if its window still exists, and active if that
+// window is the one its repo currently shows in the front session.
 func (s *snapshot) entry(w state.Worktree) Entry {
-	sess, alive := s.sessions[w.Session]
-	if alive && sess.LastAttached.After(w.LastAttached) {
-		w.LastAttached = sess.LastAttached
+	win, alive := tmux.Window{}, false
+	if w.Window != "" {
+		win, alive = s.windows[w.Window]
 	}
-	return Entry{Worktree: w, Alive: alive}
+	// Window activity is a fallback, not a preference: it moves whenever an agent
+	// prints something, so it would reorder the picker by output rather than by
+	// attention. It's only worth having for a window awt has never switched to.
+	if alive && w.LastAttached.IsZero() {
+		w.LastAttached = win.Activity
+	}
+	return Entry{Worktree: w, Alive: alive, Active: alive && win.Session == s.front}
 }
 
-// untracked reports live sessions no group already covers: one whose worktree
-// was removed behind awt's back, or one awt never created.
+// untracked reports live windows no group already covers: a worktree removed
+// behind awt's back, or a window awt never created. awt's own bookkeeping
+// windows aren't worktrees and stay out of it.
 func (s *snapshot) untracked(groups []Group) []Entry {
 	covered := make(map[string]bool)
 	for _, g := range groups {
 		for _, e := range g.Entries {
-			covered[e.Session] = true
+			if e.Window != "" {
+				covered[e.Window] = true
+			}
 		}
 	}
 	var out []Entry
-	for name, sess := range s.sessions {
-		if covered[name] {
+	for id, win := range s.windows {
+		if covered[id] || win.Name == keeperWindow || win.Name == scratchWindow {
 			continue
 		}
 		out = append(out, Entry{
 			Worktree: state.Worktree{
-				Repo: untrackedRepo, Name: name, Session: name, LastAttached: sess.LastAttached,
+				Repo: untrackedRepo, Name: win.Name, Window: id, LastAttached: win.Activity,
 			},
-			Alive: true,
+			Alive:  true,
+			Active: win.Session == s.front,
 		})
 	}
 	return out
@@ -197,14 +227,14 @@ func (s *snapshot) finish(groups []Group) {
 	sortGroups(groups)
 }
 
-// currentRepo is the repo owning the session this command was run from, if any.
+// currentRepo is the repo owning the window this command was run from, if any.
 func (s *snapshot) currentRepo() string {
-	name, ok := tmux.CurrentSession()
+	id, ok := tmux.CurrentWindow()
 	if !ok {
 		return ""
 	}
 	for _, w := range s.st.Worktrees {
-		if w.Session == name {
+		if w.Window == id {
 			return w.Repo
 		}
 	}
@@ -212,7 +242,7 @@ func (s *snapshot) currentRepo() string {
 }
 
 // sortGroups orders groups by the current repo, then liveness, then recency; and
-// each group's entries the same way, so the sessions you'd actually switch to
+// each group's entries the same way, so the worktrees you'd actually switch to
 // sit at the top of both the listing and the picker.
 func sortGroups(groups []Group) {
 	for _, g := range groups {
@@ -222,6 +252,9 @@ func sortGroups(groups []Group) {
 }
 
 func entryLess(a, b Entry) bool {
+	if a.Active != b.Active {
+		return a.Active
+	}
 	if a.Alive != b.Alive {
 		return a.Alive
 	}

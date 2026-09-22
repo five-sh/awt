@@ -9,11 +9,12 @@ import (
 	"awt/internal/git"
 	"awt/internal/naming"
 	"awt/internal/state"
-	"awt/internal/tmux"
 )
 
-// finishCreate lays out the worktree directory, spins up its tmux session, and
-// records it in state. add does the actual git worktree add (new branch or existing).
+// finishCreate lays out the worktree directory and records it in state. add does
+// the actual git worktree add (new branch or existing). The tmux window is not
+// built here: focus() does that the first time the worktree comes on screen, so
+// there's one path that creates windows and one that knows where to put them.
 func finishCreate(repo *state.Repo, name, branch, parent string, add func(path string) error) (state.Worktree, error) {
 	root, err := workspaceRoot()
 	if err != nil {
@@ -23,13 +24,9 @@ func finishCreate(repo *state.Repo, name, branch, parent string, add func(path s
 	if err := add(path); err != nil {
 		return state.Worktree{}, err
 	}
-	session := naming.Disambiguate(naming.SessionName(repo.Name, name), tmux.HasSession)
-	if err := createSessionLayout(session, path); err != nil {
-		return state.Worktree{}, err
-	}
 	wt := state.Worktree{
 		Repo: repo.Name, Name: name, Branch: branch, Path: path,
-		Session: session, Parent: parent, CreatedAt: time.Now(),
+		Parent: parent, CreatedAt: time.Now(),
 	}
 	st, err := state.Load()
 	if err != nil {

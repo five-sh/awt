@@ -26,7 +26,7 @@ func New(opts NewOptions) error {
 	if err != nil {
 		return err
 	}
-	return attach(Entry{Worktree: wt, Alive: true})
+	return focus(Entry{Worktree: wt})
 }
 
 // newWorktree makes a brand-new branch and its worktree: the whole of `awt new`

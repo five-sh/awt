@@ -11,12 +11,15 @@ import (
 
 const (
 	timeFormat = "Jan 2 15:04"
-	lsColumns  = "NAME\tBRANCH\tFROM\tSESSION\tLAST ATTACHED"
+	lsColumns  = "NAME\tBRANCH\tFROM\tWHERE\tLAST ATTACHED"
 )
 
 type Entry struct {
 	state.Worktree
-	Alive bool
+	// Alive: the worktree's window still exists, on screen or parked.
+	// Active: it's the window its repo currently shows in the front session.
+	Alive  bool
+	Active bool
 }
 
 // Matches reports whether name identifies this entry, either by its (possibly
@@ -72,7 +75,7 @@ func printGrouped(groups []Group) error {
 		fmt.Fprintln(w, "  "+lsColumns)
 		for _, e := range g.Entries {
 			fmt.Fprintf(w, "  %s\t%s\t%s\t%s\t%s\n",
-				e.Name, e.Branch, e.Parent, yesNo(e.Alive), formatTime(e.LastAttached))
+				e.Name, e.Branch, e.Parent, where(e), formatTime(e.LastAttached))
 		}
 		if err := w.Flush(); err != nil {
 			return err
@@ -92,10 +95,10 @@ func printFlat(groups []Group) error {
 	for _, e := range flatten(groups) {
 		if showRepo {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
-				e.Repo, e.Name, e.Branch, e.Parent, yesNo(e.Alive), formatTime(e.LastAttached))
+				e.Repo, e.Name, e.Branch, e.Parent, where(e), formatTime(e.LastAttached))
 		} else {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-				e.Name, e.Branch, e.Parent, yesNo(e.Alive), formatTime(e.LastAttached))
+				e.Name, e.Branch, e.Parent, where(e), formatTime(e.LastAttached))
 		}
 	}
 	return w.Flush()
@@ -113,11 +116,17 @@ func isTTY(f *os.File) bool {
 	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
 
-func yesNo(b bool) string {
-	if b {
-		return "yes"
+// where says what became of a worktree's window: on screen as its repo's
+// window, parked with everything in it still running, or not built yet.
+func where(e Entry) string {
+	switch {
+	case e.Active:
+		return "active"
+	case e.Alive:
+		return "parked"
+	default:
+		return "-"
 	}
-	return "no"
 }
 
 func formatTime(t time.Time) string {
