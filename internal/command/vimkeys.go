@@ -8,9 +8,10 @@ import (
 // Vim keys in the picker.
 //
 // fzf has no modes of its own and allows one binding per key, so normal mode is
-// emulated. The picker opens in normal mode, which is simply the keys as bound
-// on the command line; `i`, `a` and `/` unbind the lot — an unbound key in fzf
-// types its character — and `esc` rebinds them. The prompt doubles as the mode flag:
+// emulated. Normal mode is simply the keys as bound on the command line; `i`, `a`
+// and `/` unbind the lot — an unbound key in fzf types its character — and `esc`
+// rebinds them. The picker opens in insert mode: the start event unbinds them
+// before the first keypress. The prompt doubles as the mode flag:
 // fzf hands `$FZF_PROMPT` to a `transform` binding, which is what lets one key
 // mean two things, so `ctrl-u` can still clear the query while typing and scroll
 // half a page in normal mode — the two things ctrl-u does in vim.
@@ -77,10 +78,11 @@ func pickerBindings() []string {
 	leave := fmt.Sprintf("unbind(%s)+change-prompt(%s)", set, insertPrompt)
 	resolve := strings.NewReplacer(enterNormal, enter, leaveNormal, leave).Replace
 
-	// The picker opens in normal mode: the keys are live as bound below, and the
-	// prompt is set here as well as with --prompt, since the prompt is what every
-	// mode test reads — it has to say "normal" from the first keypress.
-	binds := []string{"--bind=start:" + fmt.Sprintf("change-prompt(%s)", normalPrompt)}
+	// The picker opens in insert mode, so typing filters straight away: start
+	// unbinds the normal-mode keys, and sets the prompt as well as --prompt does,
+	// since the prompt is what every mode test reads — it has to say insert from
+	// the first keypress.
+	binds := []string{"--bind=start:" + leave}
 	for _, k := range normalKeys {
 		binds = append(binds, "--bind="+k.key+":"+resolve(k.action))
 	}
