@@ -30,6 +30,8 @@ func main() {
 		runPark(args)
 	case "migrate":
 		runMigrate(args)
+	case "help", "-h", "--help":
+		check(command.Help(os.Stdout))
 	default:
 		runBareSwitch(os.Args[1:])
 	}
