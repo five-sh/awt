@@ -102,7 +102,7 @@ down the left column, and the editor keeps the right. Works on a parked worktree
 as much as the one on screen, and focus only follows when you're already looking
 at that window.
 
-`new`, `ls`, `switch`, `rm`, `agent`, `park`, `migrate` are reserved repo names.
+`new`, `ls`, `switch`, `rm`, `agent`, `park`, `migrate`, `help` are reserved repo names.
 
 ## Windows and panes
 
