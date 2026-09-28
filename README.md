@@ -102,7 +102,14 @@ down the left column, and the editor keeps the right. Works on a parked worktree
 as much as the one on screen, and focus only follows when you're already looking
 at that window.
 
-`new`, `ls`, `switch`, `rm`, `agent`, `park`, `migrate` are reserved repo names.
+```
+awt version
+```
+
+Prints the version, e.g. `awt 0.2.0`.
+
+`new`, `ls`, `switch`, `rm`, `agent`, `park`, `migrate`, `version` are reserved
+repo names.
 
 ## Windows and panes
 

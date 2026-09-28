@@ -30,6 +30,8 @@ func main() {
 		runPark(args)
 	case "migrate":
 		runMigrate(args)
+	case "version":
+		check(command.PrintVersion(os.Stdout))
 	default:
 		runBareSwitch(os.Args[1:])
 	}
