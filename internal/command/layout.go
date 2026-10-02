@@ -217,7 +217,7 @@ func evictableFront(windows []tmux.Window, front string, wt state.Worktree) (evi
 
 // focus brings a worktree on screen: its window becomes its repo's window in the
 // front session, at the index that repo already holds, and the client is pointed
-// at it. v0.2's replacement for attaching to a per-worktree session.
+// at it.
 func focus(e Entry) error {
 	park, err := ensurePark()
 	if err != nil {

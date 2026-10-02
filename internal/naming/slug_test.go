@@ -57,14 +57,6 @@ func TestSlugifyBranch(t *testing.T) {
 	}
 }
 
-func TestSessionName(t *testing.T) {
-	got := SessionName("my.repo", "fix:bug")
-	want := "my-repo--fix-bug"
-	if got != want {
-		t.Errorf("SessionName = %q, want %q", got, want)
-	}
-}
-
 func TestWindowName(t *testing.T) {
 	cases := map[[2]string]string{
 		{"pair-be", "codex-auth"}: "pair-be:codex-auth",

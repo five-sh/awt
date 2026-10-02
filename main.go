@@ -29,8 +29,6 @@ func main() {
 		runAgent(args)
 	case "park":
 		runPark(args)
-	case "migrate":
-		runMigrate(args)
 	case "__tree": // the tree's own bindings call back in; not for typing
 		check(command.TreeHelper(args))
 	case "help", "-h", "--help":
@@ -54,7 +52,6 @@ Usage:
   awt park [repo]                           move a repo's window off screen
   awt rm <repo> <worktree> [--force]        remove a worktree and its branch
   awt agent add <repo> <worktree> [name]    add a Claude agent pane to a worktree
-  awt migrate [--dry-run]                   kill v0.1 per-worktree sessions
   awt version                               print the version
   awt help                                  show this help
 
@@ -177,17 +174,6 @@ func runPark(args []string) {
 		repo = fs.Arg(0)
 	}
 	check(command.Park(repo))
-}
-
-func runMigrate(args []string) {
-	fs := flag.NewFlagSet("migrate", flag.ExitOnError)
-	dryRun := fs.Bool("dry-run", false, "list what would be killed, kill nothing")
-	flags, positional := splitArgs(args, map[string]bool{})
-	fs.Parse(flags)
-	if len(positional) > 0 {
-		fatal("usage: awt migrate [--dry-run]")
-	}
-	check(command.Migrate(*dryRun))
 }
 
 func check(err error) {
