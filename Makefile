@@ -1,7 +1,7 @@
 BINARY      := awt
 INSTALL_DIR := $(HOME)/.local/bin
 
-.PHONY: build install test fmt fmt-fix vet clean check
+.PHONY: build install test test-tmux fmt fmt-fix vet clean check check-all
 
 build:
 	go build -o $(BINARY) .
@@ -12,6 +12,10 @@ install: build
 
 test:
 	go test ./...
+
+# Integration tests too: they need a real tmux, and run on a private socket.
+test-tmux:
+	go test -tags tmux -count=1 ./...
 
 fmt:
 	@test -z "$$(gofmt -l .)" || (gofmt -l .; exit 1)
@@ -26,3 +30,5 @@ clean:
 	rm -f $(BINARY)
 
 check: fmt vet test build
+
+check-all: fmt vet test-tmux build

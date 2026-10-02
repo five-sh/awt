@@ -62,8 +62,61 @@ func CurrentBranch(path string) (string, error) {
 }
 
 func BranchExists(repoRoot, name string) bool {
-	_, err := run(repoRoot, "show-ref", "--verify", "--quiet", "refs/heads/"+name)
+	return refExists(repoRoot, "refs/heads/"+name)
+}
+
+func refExists(repoRoot, ref string) bool {
+	_, err := run(repoRoot, "show-ref", "--verify", "--quiet", ref)
 	return err == nil
+}
+
+// RemoteBranch resolves name to an origin-tracking ref, fetching first to catch a
+// branch pushed after the last fetch. Falls back to a cached remote-tracking ref if
+// the fetch fails (e.g. offline), and errors if neither is available.
+func RemoteBranch(repoRoot, name string) (ref, warn string, err error) {
+	if !HasRemote(repoRoot, "origin") {
+		return "", "", fmt.Errorf("no origin remote")
+	}
+	ref = "refs/remotes/origin/" + name
+	if _, ferr := run(repoRoot, "fetch", "origin", name); ferr != nil {
+		if !refExists(repoRoot, ref) {
+			return "", "", fmt.Errorf("no branch %q on origin: %v", name, ferr)
+		}
+		return ref, fmt.Sprintf("could not fetch origin/%s, using cached ref (%v)", name, ferr), nil
+	}
+	if !refExists(repoRoot, ref) {
+		return "", "", fmt.Errorf("no branch %q on origin", name)
+	}
+	return ref, "", nil
+}
+
+// SyncExisting refreshes an already-existing local branch from its origin
+// counterpart before it's checked out into a new worktree: fetches origin,
+// fast-forwards the local branch to match if it's a clean ancestor (never
+// discarding local-only commits), and configures upstream tracking so a plain
+// `git pull` works inside the resulting worktree. Safe to call before the branch
+// is checked out anywhere. Any failure is non-fatal and reported via warn, so
+// materializing can still proceed with whatever's already on disk.
+func SyncExisting(repoRoot, branch string) (warn string) {
+	if !HasRemote(repoRoot, "origin") {
+		return ""
+	}
+	if _, err := run(repoRoot, "fetch", "origin", branch); err != nil {
+		return fmt.Sprintf("could not fetch origin/%s, using local copy (%v)", branch, err)
+	}
+	ref := "refs/remotes/origin/" + branch
+	if !refExists(repoRoot, ref) {
+		return "" // local-only branch, nothing on origin to sync with
+	}
+	if _, err := run(repoRoot, "merge-base", "--is-ancestor", "refs/heads/"+branch, ref); err == nil {
+		if _, err := run(repoRoot, "update-ref", "refs/heads/"+branch, ref); err != nil {
+			return fmt.Sprintf("could not fast-forward %s to origin (%v)", branch, err)
+		}
+	}
+	if _, err := run(repoRoot, "branch", "--set-upstream-to=origin/"+branch, branch); err != nil {
+		return fmt.Sprintf("could not set upstream for %s (%v)", branch, err)
+	}
+	return ""
 }
 
 func IsBare(repoRoot string) bool {
@@ -132,6 +185,13 @@ func AddWorktree(repoRoot, path, branch, base string) error {
 // AddWorktreeExisting checks out a branch that already exists locally into a new worktree.
 func AddWorktreeExisting(repoRoot, path, branch string) error {
 	_, err := run(repoRoot, "worktree", "add", path, branch)
+	return err
+}
+
+// AddWorktreeTracking creates a new local branch named branch, tracking ref (e.g.
+// an origin-only branch's refs/remotes/origin/<branch>), checked out into a new worktree.
+func AddWorktreeTracking(repoRoot, path, branch, ref string) error {
+	_, err := run(repoRoot, "worktree", "add", "--track", "-b", branch, path, ref)
 	return err
 }
 

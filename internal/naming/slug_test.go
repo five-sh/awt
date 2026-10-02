@@ -32,6 +32,31 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
+func TestSlugifyBranch(t *testing.T) {
+	cases := map[string]string{
+		"codex/fix login!!": "codex/fix-login",
+		"Fix/Login!!":       "Fix/Login",
+		"feature x":         "feature-x",
+	}
+	for in, want := range cases {
+		got, err := SlugifyBranch(in)
+		if err != nil {
+			t.Errorf("SlugifyBranch(%q) unexpected error: %v", in, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("SlugifyBranch(%q) = %q, want %q", in, got, want)
+		}
+	}
+
+	badCases := []string{"/codex", "codex/", "codex//foo", ""}
+	for _, in := range badCases {
+		if _, err := SlugifyBranch(in); err == nil {
+			t.Errorf("SlugifyBranch(%q) = nil error, want error", in)
+		}
+	}
+}
+
 func TestSessionName(t *testing.T) {
 	got := SessionName("my.repo", "fix:bug")
 	want := "my-repo--fix-bug"
@@ -40,14 +65,14 @@ func TestSessionName(t *testing.T) {
 	}
 }
 
-func TestDisambiguate(t *testing.T) {
-	taken := map[string]bool{"repo--wt": true}
-	got := Disambiguate("repo--wt", func(n string) bool { return taken[n] })
-	if got == "repo--wt" {
-		t.Errorf("Disambiguate did not rename a taken session")
+func TestWindowName(t *testing.T) {
+	cases := map[[2]string]string{
+		{"pair-be", "codex-auth"}: "pair-be:codex-auth",
+		{"my:repo", "fix:bug"}:    "my-repo:fix-bug",
 	}
-	got2 := Disambiguate("repo--free", func(n string) bool { return taken[n] })
-	if got2 != "repo--free" {
-		t.Errorf("Disambiguate renamed a free session: %q", got2)
+	for in, want := range cases {
+		if got := WindowName(in[0], in[1]); got != want {
+			t.Errorf("WindowName(%q, %q) = %q, want %q", in[0], in[1], got, want)
+		}
 	}
 }

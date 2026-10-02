@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"awt/internal/git"
 	"awt/internal/naming"
@@ -21,19 +22,30 @@ func New(opts NewOptions) error {
 	if err != nil {
 		return err
 	}
-	slug, err := naming.Slugify(opts.Name)
+	wt, err := newWorktree(repo, opts.Name, opts.From, opts.NoParent)
 	if err != nil {
 		return err
 	}
-	base, err := resolveBase(repo, opts.From, opts.NoParent)
+	return focus(Entry{Worktree: wt})
+}
+
+// newWorktree makes a brand-new branch and its worktree: the whole of `awt new`
+// bar the attach, shared with the picker, where typing a name nothing answers to
+// lands here too.
+func newWorktree(repo *state.Repo, input, from string, noParent bool) (state.Worktree, error) {
+	branch, err := naming.SlugifyBranch(input)
 	if err != nil {
-		return err
+		return state.Worktree{}, err
 	}
-	wt, err := createWorktree(repo, slug, base)
+	name, err := naming.Slugify(branch)
 	if err != nil {
-		return err
+		return state.Worktree{}, err
 	}
-	return attach(Entry{Worktree: wt, Alive: true})
+	base, err := resolveBase(repo, from, noParent)
+	if err != nil {
+		return state.Worktree{}, err
+	}
+	return createWorktree(repo, name, branch, base)
 }
 
 // resolveBase picks the base ref for a new branch: an explicit --from, else the
@@ -59,16 +71,35 @@ func resolveBase(repo *state.Repo, from string, noParent bool) (string, error) {
 	return base, err
 }
 
+// resolveNamedBase resolves an explicit --from into a base ref: a tracked worktree
+// (by name or branch), else a local branch, else a branch on origin, named either
+// bare ("main") or the way ls reports a parent ("origin/main") so that round-trips.
+//
+// A local branch is used exactly as it stands on disk, deliberately unfetched.
+// Forking off a sibling worktree has to see that worktree's unpushed commits, and
+// syncing the ref would move a branch out from under a live checkout, so staleness
+// is the caller's to manage here — unlike the no---from default, which fetches.
 func resolveNamedBase(repo *state.Repo, from string) (string, error) {
 	st, err := state.Load()
 	if err != nil {
 		return "", err
 	}
-	if wt, ok := st.Find(repo.Name, from); ok {
+	// A stale state entry can outlive its branch (a worktree removed outside awt),
+	// so fall through rather than handing git a ref that no longer resolves.
+	if wt, ok := st.Find(repo.Name, from); ok && git.BranchExists(repo.Path, wt.Branch) {
 		return wt.Branch, nil
 	}
-	if !git.BranchExists(repo.Path, from) {
+	if git.BranchExists(repo.Path, from) {
+		return from, nil
+	}
+	remote := strings.TrimPrefix(from, "origin/")
+	_, warn, rerr := git.RemoteBranch(repo.Path, remote)
+	if rerr != nil {
 		return "", fmt.Errorf("unknown branch or worktree %q", from)
 	}
-	return from, nil
+	if warn != "" {
+		fmt.Fprintln(os.Stderr, "awt: "+warn)
+	}
+	// Short form, matching the ref FreshBase reports, since it lands in Parent.
+	return "origin/" + remote, nil
 }

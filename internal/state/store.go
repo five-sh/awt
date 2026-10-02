@@ -15,11 +15,18 @@ const (
 )
 
 type Worktree struct {
-	Repo         string    `json:"repo"`
-	Name         string    `json:"name"`
-	Branch       string    `json:"branch"`
-	Path         string    `json:"path"`
-	Session      string    `json:"session"`
+	Repo   string `json:"repo"`
+	Name   string `json:"name"`
+	Branch string `json:"branch"`
+	Path   string `json:"path"`
+	// Window is the tmux window id ("@17") the worktree's editor and agents live
+	// in. It replaces v0.1's per-worktree session, and like that field it's a
+	// cache: a window id tmux no longer knows just means the window needs
+	// rebuilding.
+	Window string `json:"window,omitempty"`
+	// Session is v0.1's per-worktree tmux session, kept only so `awt migrate`
+	// can find and kill those sessions. Nothing writes it any more.
+	Session      string    `json:"session,omitempty"`
 	Parent       string    `json:"parent,omitempty"`
 	CreatedAt    time.Time `json:"createdAt"`
 	LastAttached time.Time `json:"lastAttached"`
@@ -85,9 +92,11 @@ func (s *Store) Save() error {
 	return os.Rename(tmp, path)
 }
 
+// Find looks up a worktree by its (possibly slugified) name or by the raw branch
+// it checks out, so a caller can identify it either way.
 func (s *Store) Find(repo, name string) (*Worktree, bool) {
 	for i := range s.Worktrees {
-		if s.Worktrees[i].Repo == repo && s.Worktrees[i].Name == name {
+		if s.Worktrees[i].Repo == repo && (s.Worktrees[i].Name == name || s.Worktrees[i].Branch == name) {
 			return &s.Worktrees[i], true
 		}
 	}

@@ -26,6 +26,10 @@ func main() {
 		runRm(args)
 	case "agent":
 		runAgent(args)
+	case "park":
+		runPark(args)
+	case "migrate":
+		runMigrate(args)
 	default:
 		runBareSwitch(os.Args[1:])
 	}
@@ -118,6 +122,27 @@ func runAgent(args []string) {
 		name = a[2]
 	}
 	check(command.AgentAdd(a[0], a[1], name))
+}
+
+func runPark(args []string) {
+	fs := flag.NewFlagSet("park", flag.ExitOnError)
+	fs.Parse(args)
+	repo := ""
+	if fs.NArg() > 0 {
+		repo = fs.Arg(0)
+	}
+	check(command.Park(repo))
+}
+
+func runMigrate(args []string) {
+	fs := flag.NewFlagSet("migrate", flag.ExitOnError)
+	dryRun := fs.Bool("dry-run", false, "list what would be killed, kill nothing")
+	flags, positional := splitArgs(args, map[string]bool{})
+	fs.Parse(flags)
+	if len(positional) > 0 {
+		fatal("usage: awt migrate [--dry-run]")
+	}
+	check(command.Migrate(*dryRun))
 }
 
 func check(err error) {
