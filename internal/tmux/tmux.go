@@ -67,11 +67,6 @@ func NewSession(name, cwd, winName, cmd string) error {
 	return err
 }
 
-func KillSession(name string) error {
-	_, err := run("kill-session", "-t", sessionTarget(name))
-	return err
-}
-
 // SetOption sets a session option on the named session.
 func SetOption(session, name, value string) error {
 	_, err := run("set-option", "-t", sessionWindowTarget(session), name, value)
@@ -96,39 +91,6 @@ func BaseIndex() int {
 		return 0
 	}
 	return i
-}
-
-// Session is a live tmux session. Only `awt migrate` still needs these: v0.2
-// keeps its state in windows, not sessions.
-type Session struct {
-	Name         string
-	Attached     bool
-	LastAttached time.Time
-}
-
-const sessionFormat = "#{session_name}\t#{session_attached}\t#{session_last_attached}"
-
-func ListSessions() ([]Session, error) {
-	out, err := run("list-sessions", "-F", sessionFormat)
-	if err != nil {
-		if strings.Contains(err.Error(), "no server running") {
-			return nil, nil
-		}
-		return nil, err
-	}
-	var sessions []Session
-	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
-		f := strings.Split(l, "\t")
-		if len(f) < 3 || f[0] == "" {
-			continue
-		}
-		s := Session{Name: f[0], Attached: f[1] == "1"}
-		if secs, err := strconv.ParseInt(f[2], 10, 64); err == nil && secs > 0 {
-			s.LastAttached = time.Unix(secs, 0)
-		}
-		sessions = append(sessions, s)
-	}
-	return sessions, nil
 }
 
 // Window is one tmux window. ID ("@17") is stable for the window's whole life

@@ -1,14 +1,10 @@
 package naming
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
 )
-
-const maxSessionLen = 60
 
 var (
 	nonSlugChars = regexp.MustCompile(`[^\p{L}\p{N}._-]+`)
@@ -51,29 +47,4 @@ func SlugifyBranch(input string) (string, error) {
 func WindowName(repoName, wtSlug string) string {
 	clean := strings.NewReplacer(":", "-")
 	return clean.Replace(repoName) + ":" + clean.Replace(wtSlug)
-}
-
-// SessionName builds the per-worktree session name v0.1 used. v0.2 keeps worktrees
-// in windows instead, so this is only here to recognise sessions left over from
-// v0.1 — see `awt migrate`.
-func SessionName(repoSlug, wtSlug string) string {
-	clean := strings.NewReplacer(":", "-", ".", "-")
-	name := clean.Replace(repoSlug) + "--" + clean.Replace(wtSlug)
-	if len(name) <= maxSessionLen {
-		return name
-	}
-	return shortenWithHash(name)
-}
-
-func shortenWithHash(name string) string {
-	sum := sha1.Sum([]byte(name))
-	suffix := hex.EncodeToString(sum[:])[:6]
-	max := maxSessionLen - len(suffix) - 1
-	if max > len(name) {
-		max = len(name)
-	}
-	if max < 0 {
-		max = 0
-	}
-	return name[:max] + "-" + suffix
 }

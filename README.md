@@ -32,16 +32,6 @@ make check     # fmt + vet + test + build
 
 `awt version` prints the version you have.
 
-Coming from v0.1, which gave every worktree its own session:
-
-```
-awt migrate [--dry-run]
-```
-
-kills those sessions once. The worktrees themselves are untouched — each gets a
-window the next time you switch to it. Sessions no worktree in state accounts
-for are listed, never killed.
-
 ## Quick start
 
 There is no separate setup step. The first time you name a repo awt doesn't
@@ -115,15 +105,6 @@ grep ...`) it prints one flat table instead, with a leading `REPO` column when
 more than one repo is listed.
 
 ```
-awt park [<repo>]
-```
-
-Sends a repo's on-screen worktree back to the park session: the repo leaves the
-status bar with its editor and agents still running. No repo name parks the one
-you're in. Parking your last repo window destroys the front session and so
-detaches you — which is what asking to park your last repo means.
-
-```
 awt rm <repo> <worktree> [--force]
 ```
 
@@ -142,8 +123,7 @@ down the left column, and the editor keeps the right. Works on a parked worktree
 as much as the one on screen, and focus only follows when you're already looking
 at that window.
 
-`new`, `ls`, `switch`, `rm`, `agent`, `park`, `migrate`, `version`, `help` are
-reserved repo names.
+`new`, `ls`, `switch`, `rm`, `agent`, `version`, `help` are reserved repo names.
 
 ## Windows and panes
 
@@ -299,10 +279,3 @@ make test-tmux     # + integration tests against a private tmux server
 The integration tests are behind a `tmux` build tag. They run on their own
 socket with an empty config, so neither your server nor your `.tmux.conf` is
 touched.
-
-## Not yet there
-
-- `awt repo ls`/`rm` — can't list/remove a registered repo, only its worktrees
-- `awt agent ls`/`rm` — close a pane with tmux directly (`prefix+x`)
-- `awt switch --pin` — give one worktree its own window instead of sharing its
-  repo's, for the times two branches of one repo do need to be side by side

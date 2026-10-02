@@ -183,17 +183,6 @@ func repoWindowIDs(repo string) map[string]bool {
 	return ids
 }
 
-// repoFrontWindow finds the window a repo currently has on screen, if any.
-func repoFrontWindow(windows []tmux.Window, front, repo string) (tmux.Window, bool) {
-	ids := repoWindowIDs(repo)
-	for _, w := range windows {
-		if w.Session == front && belongsToRepo(w, repo, ids) {
-			return w, true
-		}
-	}
-	return tmux.Window{}, false
-}
-
 // evictableFront names the front-session windows the target may take the place
 // of: the other worktrees of its own repo, since only one of them is on screen
 // at a time, and the scratch window a brand-new front session comes with.
@@ -217,7 +206,7 @@ func evictableFront(windows []tmux.Window, front string, wt state.Worktree) (evi
 
 // focus brings a worktree on screen: its window becomes its repo's window in the
 // front session, at the index that repo already holds, and the client is pointed
-// at it. v0.2's replacement for attaching to a per-worktree session.
+// at it.
 func focus(e Entry) error {
 	park, err := ensurePark()
 	if err != nil {

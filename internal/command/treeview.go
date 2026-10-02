@@ -76,17 +76,6 @@ func (v *treeView) shown(i int) bool {
 	return v.All || v.Rows[i].Head || v.Open[v.Rows[i].Repo]
 }
 
-// visible is the indexes of the rows on screen, in order.
-func (v *treeView) visible() []int {
-	var out []int
-	for i := range v.Rows {
-		if v.shown(i) {
-			out = append(out, i)
-		}
-	}
-	return out
-}
-
 // line is row i as fzf gets it: name, status, and the row's index, which
 // stays put however the tree is folded, so it's what the cursor tracks.
 func (v *treeView) line(i int, width int) string {
