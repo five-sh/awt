@@ -14,11 +14,23 @@ with everything inside it still running.
 
 ## Install
 
+A prebuilt binary for macOS or Linux (amd64/arm64) from the
+[releases page](https://github.com/five-sh/awt/releases), put on your `PATH`, or
+with Go 1.26+:
+
+```
+go install github.com/five-sh/awt@latest
+```
+
+or from a checkout:
+
 ```
 make install   # build + copy to ~/.local/bin/awt
 make build     # just build ./awt
 make check     # fmt + vet + test + build
 ```
+
+`awt version` prints the version you have.
 
 Coming from v0.1, which gave every worktree its own session:
 
@@ -29,6 +41,34 @@ awt migrate [--dry-run]
 kills those sessions once. The worktrees themselves are untouched — each gets a
 window the next time you switch to it. Sessions no worktree in state accounts
 for are listed, never killed.
+
+## Quick start
+
+There is no separate setup step. The first time you name a repo awt doesn't
+know, it registers it on the spot:
+
+```
+cd ~/code/myrepo
+awt myrepo main
+```
+
+Run from inside a checkout, awt offers to register that checkout as `myrepo`.
+Anywhere else, it asks for a git URL and clones it as a bare repo into
+`$AWT_REPOS_ROOT/myrepo`. Either way, you land in the `awt` tmux session with
+the repo's `main` worktree on screen (use whatever your default branch is): a `claude` agent on the left and your
+editor on the right.
+
+From there:
+
+```
+awt new myrepo feature-a        # new branch + worktree, switched to
+awt agent add myrepo feature-a  # a second agent pane in it
+awt                             # the tree: switch, add or delete worktrees
+awt rm myrepo feature-a         # done with it
+```
+
+Bind `awt` to a tmux popup (see [The tree from inside tmux](#the-tree-from-inside-tmux))
+and you rarely need to type the rest.
 
 ## Usage
 
@@ -102,7 +142,8 @@ down the left column, and the editor keeps the right. Works on a parked worktree
 as much as the one on screen, and focus only follows when you're already looking
 at that window.
 
-`new`, `ls`, `switch`, `rm`, `agent`, `park`, `migrate`, `help` are reserved repo names.
+`new`, `ls`, `switch`, `rm`, `agent`, `park`, `migrate`, `version`, `help` are
+reserved repo names.
 
 ## Windows and panes
 

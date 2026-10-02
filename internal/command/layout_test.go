@@ -3,7 +3,7 @@ package command
 import (
 	"testing"
 
-	"awt/internal/tmux"
+	"github.com/five-sh/awt/internal/tmux"
 )
 
 // win is shorthand for the fields the layout decisions actually look at.

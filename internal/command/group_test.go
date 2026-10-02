@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"awt/internal/state"
-	"awt/internal/tmux"
+	"github.com/five-sh/awt/internal/state"
+	"github.com/five-sh/awt/internal/tmux"
 )
 
 func entryOf(name string, alive, active bool, lastAttached time.Time) Entry {

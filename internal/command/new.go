@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"awt/internal/git"
-	"awt/internal/naming"
-	"awt/internal/state"
+	"github.com/five-sh/awt/internal/git"
+	"github.com/five-sh/awt/internal/naming"
+	"github.com/five-sh/awt/internal/state"
 )
 
 type NewOptions struct {

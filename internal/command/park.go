@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"awt/internal/tmux"
+	"github.com/five-sh/awt/internal/tmux"
 )
 
 // Park sends a repo's on-screen worktree back to the park session: the repo

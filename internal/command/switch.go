@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"awt/internal/git"
-	"awt/internal/state"
+	"github.com/five-sh/awt/internal/git"
+	"github.com/five-sh/awt/internal/state"
 )
 
 // Switch resolves repo/worktree and brings it on screen, creating its tmux

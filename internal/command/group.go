@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"awt/internal/git"
-	"awt/internal/naming"
-	"awt/internal/state"
-	"awt/internal/tmux"
+	"github.com/five-sh/awt/internal/git"
+	"github.com/five-sh/awt/internal/naming"
+	"github.com/five-sh/awt/internal/state"
+	"github.com/five-sh/awt/internal/tmux"
 )
 
 const (
