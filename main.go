@@ -27,8 +27,6 @@ func main() {
 		runRm(args)
 	case "agent":
 		runAgent(args)
-	case "park":
-		runPark(args)
 	case "__tree": // the tree's own bindings call back in; not for typing
 		check(command.TreeHelper(args))
 	case "help", "-h", "--help":
@@ -49,7 +47,6 @@ Usage:
   awt new <repo> <name> [--from ref] [--no-parent]
                                             create a branch and worktree, then switch to it
   awt ls [repo]                             list worktrees
-  awt park [repo]                           move a repo's window off screen
   awt rm <repo> <worktree> [--force]        remove a worktree and its branch
   awt agent add <repo> <worktree> [name]    add a Claude agent pane to a worktree
   awt version                               print the version
@@ -164,16 +161,6 @@ func runAgent(args []string) {
 		name = a[2]
 	}
 	check(command.AgentAdd(a[0], a[1], name))
-}
-
-func runPark(args []string) {
-	fs := flag.NewFlagSet("park", flag.ExitOnError)
-	fs.Parse(args)
-	repo := ""
-	if fs.NArg() > 0 {
-		repo = fs.Arg(0)
-	}
-	check(command.Park(repo))
 }
 
 func check(err error) {

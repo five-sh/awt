@@ -105,15 +105,6 @@ grep ...`) it prints one flat table instead, with a leading `REPO` column when
 more than one repo is listed.
 
 ```
-awt park [<repo>]
-```
-
-Sends a repo's on-screen worktree back to the park session: the repo leaves the
-status bar with its editor and agents still running. No repo name parks the one
-you're in. Parking your last repo window destroys the front session and so
-detaches you — which is what asking to park your last repo means.
-
-```
 awt rm <repo> <worktree> [--force]
 ```
 
@@ -132,8 +123,7 @@ down the left column, and the editor keeps the right. Works on a parked worktree
 as much as the one on screen, and focus only follows when you're already looking
 at that window.
 
-`new`, `ls`, `switch`, `rm`, `agent`, `park`, `version`, `help` are reserved repo
-names.
+`new`, `ls`, `switch`, `rm`, `agent`, `version`, `help` are reserved repo names.
 
 ## Windows and panes
 
