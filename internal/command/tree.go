@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"awt/internal/git"
-	"awt/internal/state"
-	"awt/internal/tmux"
+	"github.com/five-sh/awt/internal/git"
+	"github.com/five-sh/awt/internal/state"
+	"github.com/five-sh/awt/internal/tmux"
 )
 
 // The tree: every repo with its worktrees hanging off it, folded the way

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"awt/internal/git"
-	"awt/internal/state"
+	"github.com/five-sh/awt/internal/git"
+	"github.com/five-sh/awt/internal/state"
 )
 
 func resolveRepo(name string) (*state.Repo, error) {

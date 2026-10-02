@@ -3,7 +3,7 @@ package command
 import (
 	"fmt"
 
-	"awt/internal/tmux"
+	"github.com/five-sh/awt/internal/tmux"
 )
 
 // AgentAdd spawns another agent pane in a worktree's window. A worktree is one

@@ -6,9 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"awt/internal/naming"
-	"awt/internal/state"
-	"awt/internal/tmux"
+	"github.com/five-sh/awt/internal/naming"
+	"github.com/five-sh/awt/internal/state"
+	"github.com/five-sh/awt/internal/tmux"
 )
 
 // Migrate is the one-shot v0.1 → v0.2 switchover. v0.1 gave every worktree its

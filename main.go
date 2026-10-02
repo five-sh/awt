@@ -4,9 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime/debug"
 	"strings"
 
-	"awt/internal/command"
+	"github.com/five-sh/awt/internal/command"
 )
 
 func main() {
@@ -34,6 +35,8 @@ func main() {
 		check(command.TreeHelper(args))
 	case "help", "-h", "--help":
 		fmt.Print(usage)
+	case "version", "--version":
+		fmt.Println("awt " + buildVersion())
 	default:
 		runBareSwitch(os.Args[1:])
 	}
@@ -52,6 +55,7 @@ Usage:
   awt rm <repo> <worktree> [--force]        remove a worktree and its branch
   awt agent add <repo> <worktree> [name]    add a Claude agent pane to a worktree
   awt migrate [--dry-run]                   kill v0.1 per-worktree sessions
+  awt version                               print the version
   awt help                                  show this help
 
 Environment:
@@ -60,6 +64,21 @@ Environment:
   AWT_WORKSPACE_ROOT  worktrees (default: ~/awt/workspaces)
   EDITOR              editor in the edit pane (default: nvim)
 `
+
+// version is set at release time with -ldflags "-X main.version=v1.2.3".
+var version = ""
+
+// buildVersion is version if the build set it, else the module version that
+// `go install ...@v1.2.3` records, else "dev" for a plain checkout build.
+func buildVersion() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
+}
 
 func runBareSwitch(args []string) {
 	name := ""

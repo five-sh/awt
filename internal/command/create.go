@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"awt/internal/git"
-	"awt/internal/naming"
-	"awt/internal/state"
+	"github.com/five-sh/awt/internal/git"
+	"github.com/five-sh/awt/internal/naming"
+	"github.com/five-sh/awt/internal/state"
 )
 
 // finishCreate lays out the worktree directory and records it in state. add does

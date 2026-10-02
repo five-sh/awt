@@ -6,7 +6,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"awt/internal/state"
+	"github.com/five-sh/awt/internal/state"
 )
 
 const (

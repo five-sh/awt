@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"awt/internal/state"
+	"github.com/five-sh/awt/internal/state"
 )
 
 func treeEntry(repo, branch string, alive, active bool) Entry {
