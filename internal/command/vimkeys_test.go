@@ -26,20 +26,19 @@ func bindings(t *testing.T) map[string]string {
 	return out
 }
 
-// The picker opens in normal mode: nothing is unbound at start, and the prompt
-// says so from the first keypress, since the prompt is the mode flag every
-// modal binding reads.
-func TestPickerStartsInNormalMode(t *testing.T) {
+// The picker opens in insert mode: start does what i does, unbinding the
+// normal-mode keys and setting the prompt the modal bindings read.
+func TestPickerStartsInInsertMode(t *testing.T) {
 	b := bindings(t)
 	start, ok := b["start"]
 	if !ok {
 		t.Fatal("no start binding: nothing would set the prompt the mode tests read")
 	}
-	if start != "change-prompt("+normalPrompt+")" {
-		t.Errorf("start = %q, want just change-prompt(%s)", start, normalPrompt)
+	if start != b["i"] {
+		t.Errorf("start = %q, want it to leave normal mode like i does (%q)", start, b["i"])
 	}
-	if strings.Contains(start, "unbind") {
-		t.Errorf("start = %q, want the normal-mode keys live from the off", start)
+	if !strings.HasPrefix(start, "unbind(") || !strings.Contains(start, "change-prompt("+insertPrompt+")") {
+		t.Errorf("start = %q, want the normal-mode keys unbound from the off", start)
 	}
 	// Leaving normal mode has to unbind every key that would otherwise swallow a
 	// character of what you type.

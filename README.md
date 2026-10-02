@@ -180,9 +180,9 @@ repo is on offer.
 
 ### Keys
 
-The picker opens in normal mode — the prompt reads `normal>` — so the list
-navigates under vim keys straight away. `i`, `a` or `/` switch to typing, and
-`esc` comes back.
+The picker opens in typing mode — the prompt reads `>` — so you can filter
+straight away. `esc` switches to normal mode (`normal>`), where vim keys move
+around, and `i`, `a` or `/` switch back to typing.
 
 | Key                 | Normal mode (`normal>`) | Typing (`>`)              |
 | ------------------- | ----------------------- | ------------------------- |

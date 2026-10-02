@@ -257,13 +257,14 @@ func pickHeader(showRepo bool) string {
 	if showRepo {
 		name = "<repo>/<branch>"
 	}
-	nav := "enter: switch · j/k · g/G · ctrl-d/ctrl-u · q: quit"
+	nav := "esc: normal mode (j/k · g/G · ctrl-d/ctrl-u · q: quit"
 	if showRepo {
 		nav += " · D: clear filter"
 	}
+	nav += ")"
 	// Neither the modes nor the fact that a name you type gets made is guessable
 	// from the rows, so both get spelled out.
-	return nav + "\ni: type a name · " + createKey + ": make " + name + " · esc: back to normal"
+	return "type a name · enter: switch · " + createKey + ": make " + name + "\n" + nav
 }
 
 // pickLabel is the only thing the picker shows: repo/branch, or just the branch
@@ -296,7 +297,7 @@ func pickFzf(entries []Entry, showRepo bool, query string) (choice, error) {
 	args := append([]string{"--with-nth=1", "--delimiter=\t",
 		"--tiebreak=index", "--layout=reverse", "--info=inline",
 		"--print-query", "--expect=" + createKey,
-		"--prompt=" + normalPrompt,
+		"--prompt=" + insertPrompt,
 		"--header=" + pickHeader(showRepo), "--query=" + query,
 	}, pickerBindings()...)
 	cmd := exec.Command("fzf", args...)
