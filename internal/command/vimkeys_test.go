@@ -9,7 +9,7 @@ import (
 func bindings(t *testing.T) map[string]string {
 	t.Helper()
 	out := make(map[string]string)
-	for _, b := range pickerBindings() {
+	for _, b := range pickerBindings("transform:open", "transform:close") {
 		spec, ok := strings.CutPrefix(b, "--bind=")
 		if !ok {
 			t.Fatalf("binding %q doesn't start with --bind=", b)
@@ -26,20 +26,17 @@ func bindings(t *testing.T) map[string]string {
 	return out
 }
 
-// The picker opens in insert mode: start does what i does, unbinding the
-// normal-mode keys and setting the prompt the modal bindings read.
-func TestPickerStartsInInsertMode(t *testing.T) {
+// The tree opens in normal mode, as choose-tree does, so nothing may unbind the
+// normal-mode keys before the first keypress — a and d have to act from the off.
+func TestTreeStartsInNormalMode(t *testing.T) {
 	b := bindings(t)
-	start, ok := b["start"]
-	if !ok {
-		t.Fatal("no start binding: nothing would set the prompt the mode tests read")
+	if start, ok := b["start"]; ok && strings.Contains(start, "unbind(") {
+		t.Errorf("start = %q, want the normal-mode keys left bound", start)
 	}
-	if start != b["i"] {
-		t.Errorf("start = %q, want it to leave normal mode like i does (%q)", start, b["i"])
-	}
-	if !strings.HasPrefix(start, "unbind(") || !strings.Contains(start, "change-prompt("+insertPrompt+")") {
-		t.Errorf("start = %q, want the normal-mode keys unbound from the off", start)
-	}
+}
+
+func TestLeavingNormalModeUnbindsItsKeys(t *testing.T) {
+	b := bindings(t)
 	// Leaving normal mode has to unbind every key that would otherwise swallow a
 	// character of what you type.
 	leave := b["i"]
@@ -59,8 +56,10 @@ func TestPickerStartsInInsertMode(t *testing.T) {
 func TestPickerBindingsNavigation(t *testing.T) {
 	b := bindings(t)
 	for key, want := range map[string]string{
-		"j": "down", "k": "up", "g": "first", "G": "last", "q": "abort",
+		"j": "down-match", "k": "up-match", "g": "first", "G": "last", "q": "abort",
 		"D": "clear-query",
+		"a": "print(add)+accept", "d": "print(delete)+accept",
+		"l": "transform:open", "o": "transform:open", "h": "transform:close",
 	} {
 		if b[key] != want {
 			t.Errorf("%q = %q, want %q", key, b[key], want)
@@ -70,8 +69,8 @@ func TestPickerBindingsNavigation(t *testing.T) {
 	if c := b["C"]; !strings.HasPrefix(c, "clear-query+") || !strings.Contains(c, "unbind(") {
 		t.Errorf("C = %q, want it to clear the query and leave normal mode", c)
 	}
-	// i, a and / go back to typing: they rebind nothing and restore the prompt.
-	for _, key := range []string{"i", "a", "/"} {
+	// i and / go back to typing: they rebind nothing and restore the prompt.
+	for _, key := range []string{"i", "/"} {
 		if !strings.HasPrefix(b[key], "unbind(") ||
 			!strings.Contains(b[key], "change-prompt("+insertPrompt+")") {
 			t.Errorf("%q = %q, want it to leave normal mode", key, b[key])

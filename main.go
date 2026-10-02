@@ -30,6 +30,8 @@ func main() {
 		runPark(args)
 	case "migrate":
 		runMigrate(args)
+	case "__tree": // the tree's own bindings call back in; not for typing
+		check(command.TreeHelper(args))
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 	default:
@@ -40,7 +42,7 @@ func main() {
 const usage = `awt: work on many git worktrees from one tmux session
 
 Usage:
-  awt                                       pick a worktree across all repos
+  awt                                       browse every repo's worktrees as a tree
   awt <repo> [worktree]                     same as 'awt switch'
   awt switch <repo> [worktree]              switch to a worktree, creating it if needed
   awt new <repo> <name> [--from ref] [--no-parent]

@@ -10,7 +10,7 @@ with everything inside it still running.
 - `git`, `tmux` (3.0+)
 - [`claude`](https://claude.com/claude-code) on `PATH` — runs in each agent pane
 - `nvim`, or `$EDITOR` — runs in the `edit` pane
-- `fzf` (optional) — fuzzy picker; falls back to a numbered prompt without it
+- `fzf` 0.66+ (optional) — the worktree tree; falls back to a numbered prompt without it
 
 ## Install
 
@@ -60,8 +60,8 @@ awt
 
 Switches to a worktree, creating the worktree and/or its window if needed. The
 default branch is always rebuilt from `origin`; any other name checks out its
-existing branch. No worktree → picker scoped to the repo. No repo → picker
-across all registered repos.
+existing branch. No worktree → the tree for just that repo. No repo → the tree
+of every registered repo.
 
 ```
 awt ls [<repo>]
@@ -147,10 +147,10 @@ is a cache reconciled against git and tmux on every command, not a source of
 truth: a window id tmux no longer knows just means that worktree gets a fresh
 window next time.
 
-## Picker from inside tmux
+## The tree from inside tmux
 
-`awt` with no arguments opens the picker, so bind it to a popup (tmux 3.2+) to
-switch worktrees without leaving whatever you're in:
+`awt` with no arguments opens the tree, so bind it to a popup (tmux 3.2+) to
+switch, add and delete worktrees without leaving whatever you're in:
 
 ```
 bind-key g display-popup -E -w 80% -h 70% "awt"
@@ -160,50 +160,81 @@ A popup is the intended path: run `awt` inline in a pane and the swap still
 works, but the pane you ran it from is the one that just got parked, with its
 output.
 
-Each row is just `<repo>/<branch>`. The list is grouped by repo, with what's on
-screen first, then what's parked, and pre-filtered to the repo you opened it
-from — `D` clears that to see everything.
+Every repo is a line, folded the way nvim-tree folds a directory, with its
+worktrees hanging off it once you open it:
 
-The query isn't only a filter: a name no row answers to is one the picker will
-make for you on `enter`, so `i`, `myrepo/feature-x`, enter gets the same
-worktree and window `awt new myrepo feature-x` would. It resolves the same
-way, too — an existing branch (local or on `origin`) gets checked out, anything
-else becomes a new branch off the base `awt new` would pick, and a repo that
-isn't registered yet is registered, cloning it if you give a URL. So a fresh
-repo, a new branch and its window are all one prompt away.
+```
+▾ myrepo           3 worktrees · on screen
+  ├── feature-a    on screen
+  ├── feature-b    parked
+  └── main
+▸ other            1 worktree
+```
+
+Every repo starts folded. The repo you're in comes first, with the cursor on
+it, then repos with windows, then by recency.
+
+- `j`/`k` move, `l` (or `o`, or `enter`) opens a repo, and `h` closes it. `h` on
+  a worktree closes its repo and puts the cursor on it. `l` on an open repo
+  steps into it, and `enter` on one closes it again.
+- `enter` (or `l`) on a worktree switches to it.
+- `a` asks for a name and makes a worktree for it in the cursor's repo, then
+  switches to it. On a worktree's line the new branch forks off that worktree,
+  including commits it hasn't pushed, as `awt new --from` would. On the repo's
+  line it forks off the default branch, freshly fetched. A name that's already
+  a branch is checked out instead.
+- `d` deletes the worktree under the cursor: its window (with the editor and
+  agents in it), the worktree and its branch, after you say `y`. Uncommitted
+  changes and an unmerged branch each get their own question. The tree comes
+  back after a `d`, with what happened at the top, so you can clear out several
+  in a row, folded as you left it. On a window no repo accounts for, `d` just
+  kills the window.
+
+Filtering opens every repo, so nothing you're looking for hides in a fold.
+Matches are highlighted, the rest are dimmed, and the cursor jumps to the best
+match. Clear the query and the tree folds back up, leaving open the repo the
+cursor ended up in. A name nothing matches is one
+`enter` will make for you, so `/`, `myrepo/feature-x`, enter gets the same
+worktree and window `awt new myrepo feature-x` would. It resolves the same way,
+too — an existing branch (local or on `origin`) gets checked out, anything else
+becomes a new branch off the base `awt new` would pick, and a repo that isn't
+registered yet is registered, cloning it if you give a URL. A bare name with no
+`repo/` goes to the repo you opened the tree from.
 
 `alt-enter` does that with the query even when rows still match it — the way to
-get `feature` while `feature-x` exists. In a picker scoped to one repo the rows
-are bare branches, and so is what you type (`codex/foo` is a branch, not a
-repo); in the global one, the first path segment names the repo, unless only one
-repo is on offer.
+get `feature` while `feature-x` exists. In a tree scoped to one repo
+(`awt myrepo`), what you type is always a branch (`codex/foo` is a branch, not a
+repo).
 
 ### Keys
 
-The picker opens in typing mode — the prompt reads `>` — so you can filter
-straight away. `esc` switches to normal mode (`normal>`), where vim keys move
-around, and `i`, `a` or `/` switch back to typing.
+The tree opens in normal mode — the prompt reads `normal>` — so `a` and `d` act
+straight away. `i` or `/` switches to typing (`>`), and `esc` switches back.
 
-| Key                 | Normal mode (`normal>`) | Typing (`>`)              |
-| ------------------- | ----------------------- | ------------------------- |
-| `j` / `k`           | down / up               | types the letter          |
-| `g` / `G`           | first / last row        | types the letter          |
-| `ctrl-d` / `ctrl-u` | half page down / up     | delete char / clear query |
-| `ctrl-f` / `ctrl-b` | page down / up          | cursor right / left       |
-| `ctrl-j` / `ctrl-k` | down / up               | down / up                 |
-| `D`                 | clear the query         | types the letter          |
-| `C`                 | clear it and type       | types the letter          |
-| `i`, `a`, `/`       | start typing            | types the letter          |
-| `esc`               | cancel                  | back to normal mode       |
-| `q`                 | cancel                  | types the letter          |
-| `enter`             | switch                  | switch                    |
-| `alt-enter`         | make what you typed     | make what you typed       |
+| Key                 | Normal mode (`normal>`)           | Typing (`>`)              |
+| ------------------- | --------------------------------- | ------------------------- |
+| `j` / `k`           | down / up (next / previous match) | types the letter          |
+| `l` / `o`           | open a repo; switch to a worktree | types the letter          |
+| `h`                 | close a repo                      | types the letter          |
+| `g` / `G`           | first / last row                  | types the letter          |
+| `ctrl-d` / `ctrl-u` | half page down / up               | delete char / clear query |
+| `ctrl-f` / `ctrl-b` | page down / up                    | cursor right / left       |
+| `ctrl-j` / `ctrl-k` | down / up                         | down / up                 |
+| `a`                 | add a worktree                    | types the letter          |
+| `d`                 | delete the worktree               | types the letter          |
+| `D`                 | clear the query                   | types the letter          |
+| `C`                 | clear it and type                 | types the letter          |
+| `i`, `/`            | start typing                      | types the letter          |
+| `esc`               | cancel                            | back to normal mode       |
+| `q`                 | cancel                            | types the letter          |
+| `enter`             | open/close a repo; switch         | switch, or make the name  |
+| `alt-enter`         | make what you typed               | make what you typed       |
 
 In normal mode, all other letters and digits do nothing. A key pressed by
 mistake won't change the list or create a branch.
 
-The picker starts filtered to your repo. Press `D` or `C` to clear that filter.
-While typing, `ctrl-u` clears what you typed.
+Without fzf, the tree is printed numbered and unfolded: a number switches,
+`a N` and `d N` add and delete at line `N`, and anything else is a name to make.
 
 ## Config
 
