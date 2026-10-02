@@ -30,10 +30,34 @@ func main() {
 		runPark(args)
 	case "migrate":
 		runMigrate(args)
+	case "help", "-h", "--help":
+		fmt.Print(usage)
 	default:
 		runBareSwitch(os.Args[1:])
 	}
 }
+
+const usage = `awt: work on many git worktrees from one tmux session
+
+Usage:
+  awt                                       pick a worktree across all repos
+  awt <repo> [worktree]                     same as 'awt switch'
+  awt switch <repo> [worktree]              switch to a worktree, creating it if needed
+  awt new <repo> <name> [--from ref] [--no-parent]
+                                            create a branch and worktree, then switch to it
+  awt ls [repo]                             list worktrees
+  awt park [repo]                           move a repo's window off screen
+  awt rm <repo> <worktree> [--force]        remove a worktree and its branch
+  awt agent add <repo> <worktree> [name]    add a Claude agent pane to a worktree
+  awt migrate [--dry-run]                   kill v0.1 per-worktree sessions
+  awt help                                  show this help
+
+Environment:
+  AWT_SESSION         main tmux session name (default: awt)
+  AWT_REPOS_ROOT      bare clones (default: ~/awt/repos)
+  AWT_WORKSPACE_ROOT  worktrees (default: ~/awt/workspaces)
+  EDITOR              editor in the edit pane (default: nvim)
+`
 
 func runBareSwitch(args []string) {
 	name := ""
