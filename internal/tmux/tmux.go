@@ -269,6 +269,14 @@ func MoveWindow(id, session string, idx int) error {
 	return err
 }
 
+// RenumberWindows closes the gaps in a session's window indices, as the
+// renumber-windows option does — which it only does when a window closes, not
+// when one is moved out to another session.
+func RenumberWindows(session string) error {
+	_, err := run("move-window", "-r", "-t", sessionWindowTarget(session))
+	return err
+}
+
 // SwapWindow exchanges the window at session:idx with the window id, wherever
 // that one currently lives. This is how a worktree comes on screen: the session's
 // current-window pointer is by index, so a client watching that index simply

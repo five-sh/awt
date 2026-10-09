@@ -17,7 +17,7 @@ import (
 
 // The tree: every repo with its worktrees hanging off it, folded the way
 // nvim-tree folds directories (see treeview.go). Enter switches, `a` adds a
-// worktree, `d` deletes one. Adding and deleting happen outside fzf — it exits, awt asks
+// worktree, `d` deletes one, `p` parks a repo. Adding and deleting happen outside fzf — it exits, awt asks
 // what it needs to on the terminal, and the tree comes back with the result —
 // so there's one place that knows how to make or remove a worktree, not a
 // second copy in shell inside a --bind.
@@ -38,6 +38,7 @@ const (
 	actCreate action = "create" // the query is a name to make, not a filter
 	actAdd    action = "add"
 	actDelete action = "delete"
+	actPark   action = "park"
 )
 
 // choice is what the tree came back with: the action, the row the cursor was on
@@ -113,6 +114,8 @@ func browse(scope *state.Repo) error {
 			note = msg
 		case actDelete:
 			note = deleteFromTree(ch.row)
+		case actPark:
+			note = parkFromTree(ch.row)
 		}
 	}
 }
@@ -244,6 +247,24 @@ func deleteFromTree(r *row) string {
 	return "deleted " + label + kept
 }
 
+// parkFromTree parks the row's repo — whichever worktree of it is on screen,
+// not necessarily the row's own, since parking is per repo: on a repo's line
+// or any of its worktrees' lines, p takes the repo off the status bar. The note
+// says what happened, for the header.
+func parkFromTree(r *row) string {
+	if r == nil {
+		return ""
+	}
+	if r.repo == untrackedRepo {
+		return untrackedRepo + " isn't a repo — p parks a repo's window"
+	}
+	name, err := parkRepo(r.repo)
+	if err != nil {
+		return err.Error()
+	}
+	return "parked " + name
+}
+
 // treeRows says what each of the tree's lines is, in treeView's order.
 func treeRows(groups []Group) []row {
 	var rows []row
@@ -290,10 +311,10 @@ func startRow(v *treeView, at int) int {
 	return v.position(at)
 }
 
-// treeHeader spells out the keys, since neither the modes nor a/d are
-// guessable from the rows. note, if any, is what the last a or d did.
+// treeHeader spells out the keys, since neither the modes nor a/d/p are
+// guessable from the rows. note, if any, is what the last a, d or p did.
 func treeHeader(note string) string {
-	h := "l/enter: open · h: close · a: add worktree · d: delete · /: filter · q: quit\n" +
+	h := "l/enter: open · h: close · a: add worktree · d: delete · p: park repo · /: filter · q: quit\n" +
 		"filtering: esc back to the tree · enter on no match or " + createKey + ": make that name"
 	if note != "" {
 		h = note + "\n" + h
@@ -416,24 +437,23 @@ func lineIndex(line string, n int) (int, bool) {
 }
 
 // pickPlain is the fzf-less fallback: the tree numbered, a number to switch,
-// "a N" or "d N" to add or delete at line N, and anything else a name to make.
+// "a N", "d N" or "p N" to add, delete or park at line N, and anything else a
+// name to make.
 func pickPlain(labels []string, rows []row) (choice, error) {
 	for i, l := range labels {
 		l = l[:strings.LastIndex(l, "\t")] // the row index, there for fzf
 		fmt.Printf("%3d  %s\n", i+1, strings.Replace(l, "\t", "  ", 1))
 	}
-	fmt.Print("select (N to switch, a N to add, d N to delete, or a name to make): ")
+	fmt.Print("select (N to switch, a N to add, d N to delete, p N to park, or a name to make): ")
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	line = strings.TrimSpace(line)
 	if line == "" {
 		return choice{idx: -1}, nil
 	}
 	act, arg := actSwitch, line
-	if verb, rest, ok := strings.Cut(line, " "); ok && (verb == "a" || verb == "d") {
-		act, arg = actAdd, strings.TrimSpace(rest)
-		if verb == "d" {
-			act = actDelete
-		}
+	verbs := map[string]action{"a": actAdd, "d": actDelete, "p": actPark}
+	if verb, rest, ok := strings.Cut(line, " "); ok && verbs[verb] != "" {
+		act, arg = verbs[verb], strings.TrimSpace(rest)
 	}
 	idx, err := strconv.Atoi(arg)
 	if err != nil {

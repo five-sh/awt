@@ -150,7 +150,9 @@ reserved repo names.
 Two tmux sessions, however many repos and worktrees you have:
 
 - **`awt`** — the one you attach to. One window per repo you've opened, named
-  `<repo>:<worktree>`, in the order you opened them.
+  `<repo>:<worktree>`, in the order you opened them. Windows are numbered
+  without gaps: when a repo is parked or its window closes, the ones after it
+  shift down (awt turns on `renumber-windows` for this session).
 - **`awt-park`** — never attached. Every worktree window that isn't on screen,
   so its editor and agents keep running while a sibling holds the repo's slot.
   An `awt-keeper` window sits in it because tmux destroys a session the moment
@@ -191,7 +193,7 @@ window next time.
 ## The tree from inside tmux
 
 `awt` with no arguments opens the tree, so bind it to a popup (tmux 3.2+) to
-switch, add and delete worktrees without leaving whatever you're in:
+switch, add and delete worktrees, and park repos, without leaving whatever you're in:
 
 ```
 bind-key g display-popup -E -w 80% -h 70% "awt"
@@ -230,6 +232,11 @@ it, then repos with windows, then by recency.
   back after a `d`, with what happened at the top, so you can clear out several
   in a row, folded as you left it. On a window no repo accounts for, `d` just
   kills the window.
+- `p` parks the cursor's repo, as `awt park <repo>` would: whichever of its
+  worktrees is on screen leaves the status bar, editor and agents still
+  running. Parking goes by repo, not worktree — a repo has one slot on screen —
+  so `p` does the same on the repo's line or any of its worktrees' lines. The
+  tree comes back afterwards, like after a `d`.
 
 Filtering opens every repo, so nothing you're looking for hides in a fold.
 Matches are highlighted, the rest are dimmed, and the cursor jumps to the best
@@ -249,8 +256,8 @@ repo).
 
 ### Keys
 
-The tree opens in normal mode — the prompt reads `normal>` — so `a` and `d` act
-straight away. `i` or `/` switches to typing (`>`), and `esc` switches back.
+The tree opens in normal mode — the prompt reads `normal>` — so `a`, `d` and `p`
+act straight away. `i` or `/` switches to typing (`>`), and `esc` switches back.
 
 | Key                 | Normal mode (`normal>`)           | Typing (`>`)              |
 | ------------------- | --------------------------------- | ------------------------- |
@@ -263,6 +270,7 @@ straight away. `i` or `/` switches to typing (`>`), and `esc` switches back.
 | `ctrl-j` / `ctrl-k` | down / up                         | down / up                 |
 | `a`                 | add a worktree                    | types the letter          |
 | `d`                 | delete the worktree               | types the letter          |
+| `p`                 | park the repo                     | types the letter          |
 | `D`                 | clear the query                   | types the letter          |
 | `C`                 | clear it and type                 | types the letter          |
 | `i`, `/`            | start typing                      | types the letter          |
@@ -275,7 +283,7 @@ In normal mode, all other letters and digits do nothing. A key pressed by
 mistake won't change the list or create a branch.
 
 Without fzf, the tree is printed numbered and unfolded: a number switches,
-`a N` and `d N` add and delete at line `N`, and anything else is a name to make.
+`a N`, `d N` and `p N` add, delete and park at line `N`, and anything else is a name to make.
 
 ## Config
 

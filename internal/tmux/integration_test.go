@@ -244,6 +244,35 @@ func TestMoveOntoOccupiedIndexFails(t *testing.T) {
 	}
 }
 
+// Moving a window out of a session leaves a gap renumber-windows doesn't close,
+// so after parking awt renumbers the front session itself.
+func TestRenumberWindowsClosesGaps(t *testing.T) {
+	front, park := startServer(t)
+	a := worktreeWindow(t, park, "repo-a:main")
+	b := worktreeWindow(t, park, "repo-b:main")
+	c := worktreeWindow(t, park, "repo-c:main")
+	for i, id := range []string{a, b, c} {
+		if err := MoveWindow(id, front, i+1); err != nil {
+			t.Fatalf("MoveWindow: %v", err)
+		}
+	}
+	if err := MoveWindow(b, park, 9); err != nil {
+		t.Fatalf("parking b: %v", err)
+	}
+	if err := RenumberWindows(front); err != nil {
+		t.Fatalf("RenumberWindows: %v", err)
+	}
+	// keeper sits at 0, so a and c close up behind it.
+	for id, want := range map[string]int{a: 1, c: 2} {
+		if w, _ := windowByID(t, id); w.Session != front || w.Index != want {
+			t.Errorf("window %s = %s:%d, want %s:%d", id, w.Session, w.Index, front, want)
+		}
+	}
+	if w, _ := windowByID(t, b); w.Session != park || w.Index != 9 {
+		t.Errorf("parked window = %s:%d, want %s:9 untouched", w.Session, w.Index, park)
+	}
+}
+
 // The trap this whole package guards against: tmux resolves "-t awt" by prefix
 // as well as exactly, so with a park session named "awt-park" beside a front
 // session named "awt", a bare target hits whichever it feels like. Every target

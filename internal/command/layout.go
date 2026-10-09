@@ -238,6 +238,11 @@ func focus(e Entry) error {
 			return err
 		}
 	}
+	// Keep the repos on screen numbered without gaps when one's window closes —
+	// `awt rm`, d in the tree, or simply exiting everything in it. Set on every
+	// focus rather than only on a new session, so a session from before this
+	// gets it too. Windows are tracked by id, so nothing in awt minds the shift.
+	_ = tmux.SetOption(front, "renumber-windows", "on")
 	windows, err := tmux.ListWindows()
 	if err != nil {
 		return err

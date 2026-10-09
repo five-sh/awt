@@ -58,7 +58,7 @@ func TestPickerBindingsNavigation(t *testing.T) {
 	for key, want := range map[string]string{
 		"j": "down-match", "k": "up-match", "g": "first", "G": "last", "q": "abort",
 		"D": "clear-query",
-		"a": "print(add)+accept", "d": "print(delete)+accept",
+		"a": "print(add)+accept", "d": "print(delete)+accept", "p": "print(park)+accept",
 		"l": "transform:open", "o": "transform:open", "h": "transform:close",
 	} {
 		if b[key] != want {

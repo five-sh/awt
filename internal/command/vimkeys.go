@@ -9,7 +9,7 @@ import (
 //
 // fzf has no modes of its own and allows one binding per key, so normal mode is
 // emulated. Normal mode is simply the keys as bound on the command line, and the
-// tree opens in it, as choose-tree does: the rows are the point, and a and d act
+// tree opens in it, as choose-tree does: the rows are the point, and a, d and p act
 // on them straight away. `i` and `/` unbind the lot — an unbound key in fzf
 // types its character — and `esc` rebinds them. The prompt doubles as the mode
 // flag: fzf hands `$FZF_PROMPT` to a `transform` binding, which is what lets one
@@ -40,9 +40,10 @@ var normalKeys = []struct{ key, action string }{
 	{"l", openFold},
 	{"o", openFold},
 	{"h", closeFold},
-	// a and d hand the row under the cursor back to awt, which does the asking.
+	// a, d and p hand the row under the cursor back to awt, which does the asking.
 	{"a", "print(" + string(actAdd) + ")+accept"},
 	{"d", "print(" + string(actDelete) + ")+accept"},
+	{"p", "print(" + string(actPark) + ")+accept"},
 	// D and C get rid of the query without going back to typing first. As in
 	// vim, C also drops you into typing, which is usually why you cleared it.
 	{"D", "clear-query"},
@@ -61,7 +62,7 @@ var modalKeys = []struct{ key, insert, normal string }{
 
 // ignoredInNormal is everything else that would otherwise type a character:
 // in normal mode a stray letter must do nothing, not quietly re-filter the list.
-const ignoredInNormal = "bcefmnprstuvwxyzABEFHIJKLMNOPQRSTUVWXYZ0123456789"
+const ignoredInNormal = "bcefmnrstuvwxyzABEFHIJKLMNOPQRSTUVWXYZ0123456789"
 
 // enterNormal and leaveNormal are placeholders the bindings fill in: the key
 // sets can only be spelled out once the whole list is known. openFold and
