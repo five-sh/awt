@@ -203,6 +203,8 @@ A popup is the intended path: run `awt` inline in a pane and the swap still
 works, but the pane you ran it from is the one that just got parked, with its
 output.
 
+![Parking a repo from the tree with p, then bringing it back](docs/demo.gif)
+
 Every repo is a line, folded the way nvim-tree folds a directory, with its
 worktrees hanging off it once you open it:
 
