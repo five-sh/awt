@@ -5,7 +5,7 @@ tmux session holds one window per repo you're working in; each window shows that
 repo's current worktree, and switching worktrees swaps another one into its place
 with everything inside it still running.
 
-![awt: switching worktrees and parking a repo, with agents, editor and shell panes still running](docs/demo.gif)
+![awt: switching worktrees and parking a repo, with Claude Code, Codex, nvim and shell panes still running](docs/demo.gif)
 
 ## Requirements
 
